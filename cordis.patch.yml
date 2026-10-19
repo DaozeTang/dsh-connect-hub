@@ -1,0 +1,6 @@
+# Registers the hub's single host row. Credentials, model catalogs and all
+# preferences live in the plugin's own data directory, so this layer only needs
+# the row itself.
+- insert:
+    - id: connect-hub
+      name: dsh-connect-hub
