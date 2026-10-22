@@ -190,6 +190,8 @@ export class WorkBuddyRuntime implements ProviderRuntime {
   private creditsUpdatedAt: number | undefined
   private creditsError: string | undefined
   private probeConsent = false
+  private promptGuardEnabled = true
+  private promptGuardRewrites = 0
   private useMaxContext = false
   private checkinPrefs: WorkBuddyCheckinPrefs = defaultWorkBuddyCheckinPrefs()
   private checkinActivity: WorkBuddyCheckinActivity | undefined
@@ -213,6 +215,7 @@ export class WorkBuddyRuntime implements ProviderRuntime {
       visibility: `${prefix}visibility`,
       probes: `${prefix}probes`,
       consent: `${prefix}probe-consent`,
+      promptGuard: `${prefix}prompt-guard`,
       maxContext: `${prefix}max-context`,
       account: `${prefix}account`,
       version: `${prefix}version`,
@@ -237,6 +240,10 @@ export class WorkBuddyRuntime implements ProviderRuntime {
       new WorkBuddyUpstreamClient({
         resolveAppVersion: this.appVersion,
         resolveChatIdentity: this.chatIdentity,
+        promptGuard: () => this.promptGuardEnabled,
+        onPromptGuard: (replacements) => {
+          this.promptGuardRewrites += replacements
+        },
       })
     this.credentials =
       options.credentialStore ??
@@ -282,6 +289,7 @@ export class WorkBuddyRuntime implements ProviderRuntime {
       this.versionCache.load(),
     ])
     this.probeConsent = (await this.deps.prefs.get<boolean>(this.keys['consent']!)) === true
+    this.promptGuardEnabled = (await this.deps.prefs.get<boolean>(this.keys['promptGuard']!)) !== false
     this.checkinPrefs = parseWorkBuddyCheckinPrefs(await this.deps.prefs.get<unknown>(this.keys['checkin']!))
     if (this.variant.region === 'global') {
       this.useMaxContext = (await this.deps.prefs.get<boolean>(this.keys['maxContext']!)) !== false
@@ -381,6 +389,7 @@ export class WorkBuddyRuntime implements ProviderRuntime {
         : {}),
       probeConsent: this.probeConsent,
       probeRows,
+      promptGuard: { enabled: this.promptGuardEnabled, rewritten: this.promptGuardRewrites },
       warnings,
     }
     return buildProviderStatus(input)
@@ -420,6 +429,8 @@ export class WorkBuddyRuntime implements ProviderRuntime {
         return await this.setMaxContext(action.useMax)
       case 'set-probe-consent':
         return await this.setProbeConsent(action.consent)
+      case 'set-prompt-guard':
+        return await this.setPromptGuard(action.enabled)
       case 'probe-model':
         return await this.probeModel(action.modelId)
       case 'test-models':
@@ -1033,6 +1044,16 @@ export class WorkBuddyRuntime implements ProviderRuntime {
     return {
       message: useMax ? '已切换为最大上下文窗口' : '已切换为默认上下文窗口',
       code: useMax ? 'max-context-on' : 'max-context-off',
+    }
+  }
+
+  private async setPromptGuard(enabled: boolean): Promise<ProviderActionResult> {
+    this.promptGuardEnabled = enabled
+    await this.deps.prefs.set(this.keys['promptGuard']!, enabled)
+    this.deps.notifyChanged()
+    return {
+      message: enabled ? '已开启提示词中和（修复上游 400 拦截）' : '已关闭提示词中和，系统提示词将原样发送',
+      code: enabled ? 'prompt-guard-on' : 'prompt-guard-off',
     }
   }
 

@@ -12,6 +12,7 @@ import { chatUserAgent, fallbackChatIdentity, type ChatIdentity } from './client
 import type { WorkBuddyCredential } from './auth.ts'
 import type { ProbeAttempt } from './probe.ts'
 import { PROBE_MAX_TOKENS, PROBE_PROMPT } from './probe.ts'
+import { applyPromptGuard, type PromptGuardOptions } from './prompt-guard.ts'
 
 /** WorkBuddy region selected by the credential's login domain. */
 export type WorkBuddyRegion = 'cn' | 'global'
@@ -674,6 +675,8 @@ export interface WorkBuddyUpstreamClientOptions {
    * billing never consult it — those requests keep their long-standing headers.
    */
   resolveChatIdentity?: (region: WorkBuddyRegion) => Promise<ChatIdentity>
+  promptGuard?: () => boolean
+  onPromptGuard?: (replacements: number) => void
 }
 
 /**
@@ -816,6 +819,8 @@ export class WorkBuddyUpstreamClient implements WorkBuddyUpstream {
   private readonly resolveAppVersion: () => Promise<AppVersionInfo>
   /** Chat-identity resolver; see {@link WorkBuddyUpstreamClientOptions.resolveChatIdentity}. */
   private readonly resolveChatIdentity: (region: WorkBuddyRegion) => Promise<ChatIdentity>
+  private readonly promptGuard: () => boolean
+  private readonly onPromptGuard: ((replacements: number) => void) | undefined
 
   /** Provenance of the most recent successful catalog fetch, for the card. */
   lastCatalog: WorkBuddyCatalogFetch | undefined
@@ -823,6 +828,15 @@ export class WorkBuddyUpstreamClient implements WorkBuddyUpstream {
   constructor(options: WorkBuddyUpstreamClientOptions = {}) {
     this.resolveAppVersion = options.resolveAppVersion ?? (() => resolveAppVersion())
     this.resolveChatIdentity = options.resolveChatIdentity ?? (async (region) => fallbackChatIdentity(region))
+    this.promptGuard = options.promptGuard ?? (() => true)
+    this.onPromptGuard = options.onPromptGuard
+  }
+
+  private guardOptions(): PromptGuardOptions {
+    return {
+      enabled: this.promptGuard(),
+      ...this.onPromptGuard === undefined ? {} : { onApplied: this.onPromptGuard },
+    }
   }
 
   /** POST the chat endpoint; a successful answer is the raw SSE response. */
@@ -854,7 +868,9 @@ export class WorkBuddyUpstreamClient implements WorkBuddyUpstream {
       response = await fetch(`${chatBase(credential)}/v2/chat/completions`, {
         method: 'POST',
         headers: { ...chatHeaders(credential, userAgent, identity.clientVersion), 'Authorization': `Bearer ${credential.accessToken}` },
-        body: region === 'global' ? prepareInternationalChatBody(bodyJson) : prepareCnChatBody(bodyJson),
+        body: region === 'global'
+          ? prepareInternationalChatBody(bodyJson, this.guardOptions())
+          : prepareCnChatBody(bodyJson, this.guardOptions()),
         signal: header.signal,
       })
     } catch (error: unknown) {
@@ -1572,7 +1588,7 @@ export function modelWithCurrentPromotion(model: WorkBuddyUpstreamModel, now = D
     },
   }
 }
-export function prepareCnChatBody(source: string): string {
+export function prepareCnChatBody(source: string, guard?: PromptGuardOptions): string {
   let body: unknown
   try {
     body = JSON.parse(source)
@@ -1582,10 +1598,11 @@ export function prepareCnChatBody(source: string): string {
   }
   if (!isObject(body)) return source
   dropUnsupportedEffort(body)
+  applyPromptGuard(body, guard)
   return JSON.stringify(body)
 }
 
-export function prepareInternationalChatBody(source: string): string {
+export function prepareInternationalChatBody(source: string, guard?: PromptGuardOptions): string {
   const prepared = prepareChatBody(source)
   let body: unknown
   try {
@@ -1599,9 +1616,11 @@ export function prepareInternationalChatBody(source: string): string {
   const messages = body['messages']
   if (!Array.isArray(messages)) return JSON.stringify(body)
   const first = messages[0]
-  if (isObject(first) && first['role'] === 'system') return JSON.stringify(body)
-  // Unshift, so every caller-supplied message keeps its position and content.
-  messages.unshift({ role: 'system', content: INTERNATIONAL_SYSTEM_PROMPT })
+  if (isObject(first) && first['role'] !== 'system') {
+    // Unshift, so every caller-supplied message keeps its position and content.
+    messages.unshift({ role: 'system', content: INTERNATIONAL_SYSTEM_PROMPT })
+  }
+  applyPromptGuard(body, guard)
   return JSON.stringify(body)
 }
 

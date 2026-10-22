@@ -98,6 +98,11 @@ export interface ProbeView {
   at?: number
 }
 
+export interface PromptGuardView {
+  enabled: boolean
+  rewritten: number
+}
+
 export interface WarningView {
   code: string
   level: 'info' | 'warn' | 'error'
@@ -130,6 +135,7 @@ export interface ProviderStatus {
   credits?: CreditsView
   checkin?: CheckinView
   probes?: { supported: boolean; consent: boolean; rows: ProbeView[] }
+  promptGuard?: PromptGuardView
   transfer?: { supported: boolean }
   catalog: {
     source: 'live' | 'saved' | 'builtin'
@@ -172,6 +178,7 @@ export type HubAction =
   | { type: 'set-max-context'; provider: ProviderId; useMax: boolean }
   | { type: 'select-account'; provider: ProviderId; accountId: string }
   | { type: 'set-probe-consent'; provider: ProviderId; consent: boolean }
+  | { type: 'set-prompt-guard'; provider: ProviderId; enabled: boolean }
   | { type: 'probe-model'; provider: ProviderId; modelId: string }
   | { type: 'test-models'; provider: ProviderId; modelIds: string[] }
   | { type: 'transfer-preview'; provider: ProviderId; text: string }

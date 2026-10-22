@@ -434,6 +434,8 @@ const ACTION_SUCCESS_KEY: Readonly<Record<string, ConnectHubKey>> = {
   'checkin-failed': 'actionCheckinFailed',
   'probe-consent-on': 'actionProbeConsentOn',
   'probe-consent-off': 'actionProbeConsentOff',
+  'prompt-guard-on': 'actionPromptGuardOn',
+  'prompt-guard-off': 'actionPromptGuardOff',
   'probe-done': 'actionProbeDone',
   'probe-skipped': 'actionProbeSkipped',
   'probe-inconclusive': 'actionProbeInconclusive',

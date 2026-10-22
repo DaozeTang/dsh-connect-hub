@@ -27,6 +27,7 @@ import { CreditsSection } from './sections/CreditsSection.tsx'
 import { ModelsSection } from './sections/ModelsSection.tsx'
 import { PreferencesSection } from './sections/PreferencesSection.tsx'
 import { ProbesSection } from './sections/ProbesSection.tsx'
+import { PromptGuardSection } from './sections/PromptGuardSection.tsx'
 import { TransferSection } from './sections/TransferSection.tsx'
 import { WarningsSection } from './sections/WarningsSection.tsx'
 import { describeError } from './status-source.ts'
@@ -333,6 +334,7 @@ function ProviderSections({ t, status, provider, busy, now, run, runOptimistic }
         )}
       <ModelsSection />
       {showProbes ? <ProbesSection /> : null}
+      {configured ? <PromptGuardSection /> : null}
       {showTransfer ? <TransferSection /> : null}
       {warnings.length === 0 ? null : <WarningsSection warnings={warnings} />}
     </HubUiContext.Provider>

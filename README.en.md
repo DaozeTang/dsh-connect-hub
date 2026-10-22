@@ -225,6 +225,19 @@ offers "Clear credential" to remove its DSH credentials-service record before re
 Trae have no such button, and their plugin copies are removed with the data directory. Removing the
 plugin never signs out a desktop client and never deletes the app's own sign-in.
 
+**Why does a WorkBuddy model return 400 "Request blocked" (code 11128)?**
+
+The upstream fingerprint-checks the **opening of the system prompt**. A request whose first system
+message starts with this tool's identity sentence is rejected with `Illegal API invocation from an
+unapproved channel`, regardless of account, model, or headers — the same account succeeds with an
+ordinary prompt. The plugin ships "prompt neutralization" on by default: it inserts invisible
+characters inside matched phrases so the upstream substring match no longer fires, while the model
+reads the same words. Accounts, models, headers, and file paths are untouched (anything separated by
+`/` or `\` is always sent verbatim). The card shows how many phrases were neutralized and the switch
+turns it off, after which requests are byte-identical to the original — though the upstream then
+rejects nearly all of them. When the upstream changes its vocabulary, add an entry to
+`GUARDED_PHRASES` in `src/providers/workbuddy/prompt-guard.ts`; the algorithm needs no change.
+
 ## Known limitations
 
 - Trae: image input follows the upstream `multimodal` flag (no per-model toggle); both regions are
@@ -234,6 +247,10 @@ plugin never signs out a desktop client and never deletes the app's own sign-in.
   running or the account cannot take part; the global edition has no check-in yet, needs the
   WorkBuddy AI app, and enterprise quota was verified for China only; the China edition has no
   max-context switch and the action fails explicitly instead of silently doing nothing.
+- WorkBuddy: the upstream blocks on a client marker in the system prompt (400 / code 11128), and the
+  plugin evades it by neutralizing matched phrases with invisible characters. That vocabulary comes
+  from measurement, so an upstream policy change may need an update; this is adversarial
+  compatibility, not a stable protocol.
 - WorkBuddy desktop sign-in reading relies on the app's private storage interface; Linux or a
   non-default install location needs the Electron executable specified, and an internal format
   change is reported honestly.

@@ -7,7 +7,7 @@
  * its own labels).
  */
 
-import type { CheckinView, CreditsView, HubModel, ProbeView, ProviderStatus, WarningView } from '../../shared/contracts.ts'
+import type { CheckinView, CreditsView, HubModel, ProbeView, PromptGuardView, ProviderStatus, WarningView } from '../../shared/contracts.ts'
 import type { ProviderDescriptor } from '../../core/types.ts'
 import type { WorkBuddyAuthStatus } from './auth.ts'
 import type { WorkBuddyCredits } from './upstream.ts'
@@ -47,6 +47,7 @@ export interface WorkBuddyStatusInput {
   checkin?: CheckinView | undefined
   probeConsent: boolean
   probeRows: ProbeView[]
+  promptGuard?: PromptGuardView | undefined
   warnings: WarningView[]
 }
 
@@ -94,6 +95,7 @@ export function buildProviderStatus(input: WorkBuddyStatusInput): ProviderStatus
     ...(input.credits === undefined ? {} : { credits: input.credits }),
     ...(input.checkin === undefined ? {} : { checkin: input.checkin }),
     probes: { supported: true, consent: input.probeConsent, rows: input.probeRows },
+    ...(input.promptGuard === undefined ? {} : { promptGuard: input.promptGuard }),
     catalog: catalogBlock(input.catalog),
     warnings: input.warnings,
     capabilities: {

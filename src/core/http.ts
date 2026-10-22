@@ -26,6 +26,7 @@ const ACTION_TYPES = new Set<HubAction['type']>([
   'set-max-context',
   'select-account',
   'set-probe-consent',
+  'set-prompt-guard',
   'probe-model',
   'test-models',
   'transfer-preview',
@@ -225,6 +226,7 @@ function parseAction(value: unknown): HubAction | undefined {
   }
   if (action.type === 'set-max-context' && typeof action.useMax !== 'boolean') return undefined
   if (action.type === 'set-probe-consent' && typeof action.consent !== 'boolean') return undefined
+  if (action.type === 'set-prompt-guard' && typeof action.enabled !== 'boolean') return undefined
   if (action.type === 'checkin' || action.type === 'select-account') {
     if (action.accountId !== undefined && (typeof action.accountId !== 'string' || action.accountId.length === 0 || action.accountId.length > 200)) return undefined
   }

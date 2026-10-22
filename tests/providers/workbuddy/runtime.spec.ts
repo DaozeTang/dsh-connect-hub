@@ -857,6 +857,37 @@ describe('WorkBuddyRuntime actions', () => {
       .rejects.toMatchObject({ code: 'unknown_model', message: expect.stringContaining('模型不存在') })
   })
 
+  it('defaults the prompt guard on, persists the switch, and reports it in status', async () => {
+    const now = Date.now()
+    const { runtime, testDeps } = await harness({ document: CN_DOCUMENT(now + 3_600_000), client: fakeClient() })
+    await runtime.init()
+    await live(runtime)
+    expect(runtime.status().promptGuard).toMatchObject({ enabled: true, rewritten: 0 })
+
+    testDeps.emitted.length = 0
+    const off = await runtime.action({ type: 'set-prompt-guard', provider: 'workbuddy', enabled: false })
+    expect(off.code).toBe('prompt-guard-off')
+    expect(runtime.status().promptGuard?.enabled).toBe(false)
+    expect(await testDeps.prefs.get('provider:workbuddy:prompt-guard')).toBe(false)
+    expect(testDeps.emitted).not.toContain('llm/adapters-updated')
+
+    const on = await runtime.action({ type: 'set-prompt-guard', provider: 'workbuddy', enabled: true })
+    expect(on.code).toBe('prompt-guard-on')
+    expect(runtime.status().promptGuard?.enabled).toBe(true)
+    expect(await testDeps.prefs.get('provider:workbuddy:prompt-guard')).toBe(true)
+  })
+
+  it('restores the guard for a fresh runtime once the preference is on', async () => {
+    const now = Date.now()
+    const { runtime, testDeps } = await harness({ document: CN_DOCUMENT(now + 3_600_000), client: fakeClient() })
+    await runtime.init()
+    await live(runtime)
+    await runtime.action({ type: 'set-prompt-guard', provider: 'workbuddy', enabled: false })
+    await testDeps.prefs.set('provider:workbuddy:prompt-guard', true)
+    runtime.status()
+    expect(await testDeps.prefs.get('provider:workbuddy:prompt-guard')).toBe(true)
+  })
+
   it('tests model availability serially and stops on an auth failure', async () => {
     const now = Date.now()
     const probe = (modelId: string): ProbeAttempt => {
